@@ -9,49 +9,29 @@ exports.listEntries = async (event) => {
       body: JSON.stringify(errors.NoSortError)
     }
   }
-  
-  const sort = event.queryStringParameters.sort
-  let entries = []
 
-  try {
-    const leaderboard = await s3.getObject({
-      Bucket: process.env.BUCKET_NAME,
-      Key: process.env.DB_NAME
-    }).promise()
-  
-    entries = JSON.parse(leaderboard.Body.toString())
-  
-    if (sort === 'top') {
-      entries = entries.sort((a, b) => b.score - a.score)
-    } else if(sort === 'new') {
-      entries = entries.sort((a, b) => a.dateTime - b.dateTime)
-    }
-  } catch (err) {
-    // db doesn't exist yet
-    console.log(err.message)
-  }
+  let entries = await getEntries()
+  entries = sortEntries(entries, event.queryStringParameters.sort)
 
   return {
     statusCode: 200,
-    body: JSON.stringify(entries)
+    body: JSON.stringify(stripSecrets(entries))
   }
 }
 
 exports.addEntry = async (event) => {
   const newEntry = JSON.parse(event.body)
-  const res = await this.listEntries({
-    queryStringParameters: { sort: 'top' }
-  })
-  let entries = JSON.parse(res.body)
+  let entries = await getEntries()
 
-  if (!newEntry.name || !newEntry.score) {
+  if (!newEntry.name || !newEntry.score || !newEntry.secret) {
     return {
       statusCode: 400,
       body: JSON.stringify(errors.MissingDataError)
     }
   }
 
-  if (entries.find((e) => e.name.toLowerCase() === newEntry.name.toLowerCase())) {
+  const existingUser = findExistingUser(entries, newEntry)
+  if (existingUser && !isSecretCorrect(existingUser, newEntry.secret)) {
     return {
       statusCode: 400,
       body: JSON.stringify(errors.NameTakenError)
@@ -61,8 +41,13 @@ exports.addEntry = async (event) => {
   entries.push({
     name: newEntry.name,
     score: newEntry.score,
+    secret: newEntry.secret,
     date: new Date()
   })
+
+  if (event.queryStringParameters && event.queryStringParameters.sort) {
+    entries = sortEntries(entries, event.queryStringParameters.sort)
+  }
 
   await s3.putObject({
     Bucket: process.env.BUCKET_NAME,
@@ -72,6 +57,46 @@ exports.addEntry = async (event) => {
 
   return {
     statusCode: 200,
-    body: JSON.stringify(entries)
+    body: JSON.stringify(stripSecrets(entries))
   }
+}
+
+const getEntries = async () => {
+  try {
+    const leaderboard = await s3.getObject({
+      Bucket: process.env.BUCKET_NAME,
+      Key: process.env.DB_NAME
+    }).promise()
+  
+    return JSON.parse(leaderboard.Body.toString())
+  } catch (err) {
+    // db doesn't exist yet
+    console.log(err.message)
+    return []
+  }
+}
+
+const sortEntries = (entries, sort) => {
+  switch (sort) {
+    case 'top': return entries.sort((a, b) => b.score - a.score)
+    case 'new': return entries.sort((a, b) => new Date(b.date) - new Date(a.date))
+  }
+}
+
+const stripSecrets = (entries) => {
+  return entries.map((entry) => {
+    let strippedEntry = { ...entry }
+    delete strippedEntry.secret
+    return strippedEntry
+  })
+}
+
+const findExistingUser = (entries, newEntry) => {
+  return entries.find((e) => {
+    return e.name.toLowerCase() === newEntry.name.toLowerCase()
+  })
+}
+
+const isSecretCorrect = (entry, secret) => {
+  return entry.secret === secret
 }

@@ -1,6 +1,6 @@
 module.exports.NameTakenError = {
   error: 'NameTakenError',
-  message: 'That username already exists.'
+  message: 'That name already exists. If this is your name, make sure you entered the correct \'secret\'.'
 }
 
 module.exports.NoSortError = {
@@ -10,5 +10,5 @@ module.exports.NoSortError = {
 
 module.exports.MissingDataError = {
   error: 'MissingDataError',
-  message: 'The request is either missing a \'name\' or \'score\'.'
+  message: 'The request is either missing a \'name\', \'score\' or \'secret\'.'
 }

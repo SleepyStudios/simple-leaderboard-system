@@ -36,6 +36,10 @@ functions:
           path: leaderboard
           method: post
           cors: true
+          request:
+            parameters:
+              querystrings:
+                sort: false
 
 resources:
   Resources:
