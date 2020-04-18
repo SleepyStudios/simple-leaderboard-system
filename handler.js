@@ -1,21 +1,34 @@
 const AWS = require('aws-sdk')
 const s3 = new AWS.S3()
+const errors = require('./errors')
 
 exports.listEntries = async (event) => {
+  if (!event.queryStringParameters || !event.queryStringParameters.sort) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify(errors.NoSortError)
+    }
+  }
+  
+  const sort = event.queryStringParameters.sort
   let entries = []
 
   try {
-    const db = await s3.getObject({
+    const leaderboard = await s3.getObject({
       Bucket: process.env.BUCKET_NAME,
       Key: process.env.DB_NAME
     }).promise()
-    entries = JSON.parse(db.Body.toString())
-  } catch (err) {
-    // just catching any errors here, could be a 404 or a 500 who knows
-    return {
-      statusCode: 200,
-      body: JSON.stringify([])
+  
+    entries = JSON.parse(leaderboard.Body.toString())
+  
+    if (sort === 'top') {
+      entries = entries.sort((a, b) => b.score - a.score)
+    } else if(sort === 'new') {
+      entries = entries.sort((a, b) => a.dateTime - b.dateTime)
     }
+  } catch (err) {
+    // db doesn't exist yet
+    console.log(err.message)
   }
 
   return {
@@ -25,19 +38,36 @@ exports.listEntries = async (event) => {
 }
 
 exports.addEntry = async (event) => {
-  const entry = JSON.parse(event.body)
-  const entries = this.listEntries()
+  const newEntry = JSON.parse(event.body)
+  const res = await this.listEntries({
+    queryStringParameters: { sort: 'top' }
+  })
+  let entries = JSON.parse(res.body)
+
+  if (!newEntry.name || !newEntry.score) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify(errors.MissingDataError)
+    }
+  }
+
+  if (entries.find((e) => e.name.toLowerCase() === newEntry.name.toLowerCase())) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify(errors.NameTakenError)
+    }
+  }
+
   entries.push({
-    name: entry.name,
-    score: entry.score,
+    name: newEntry.name,
+    score: newEntry.score,
     date: new Date()
   })
-  entries = db.entries.sort((a, b) => b.score - a.score)
 
   await s3.putObject({
     Bucket: process.env.BUCKET_NAME,
     Key: process.env.DB_NAME,
-    Body: Buffer.from(entries)
+    Body: Buffer.from(JSON.stringify(entries))
   }).promise()
 
   return {

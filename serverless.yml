@@ -17,9 +17,6 @@ provider:
         - "arn:aws:s3:::${self:custom.bucketName}"
         - "arn:aws:s3:::${self:custom.bucketName}/*"
 
-package:
-  individually: true
-
 functions:
   listEntries:
     handler: handler.listEntries
@@ -28,6 +25,10 @@ functions:
           path: leaderboard
           method: get
           cors: true
+          request:
+            parameters:
+              querystrings:
+                sort: true
   addEntry:
     handler: handler.addEntry
     events:
@@ -62,4 +63,4 @@ plugins:
 
 custom:
   bucketName: ld46-leaderboard
-  dbName: db.json
+  dbName: leaderboard.json
