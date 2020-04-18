@@ -1,0 +1,65 @@
+service: simple-leaderboard-system
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  stage: dev
+  region: us-east-1
+  environment:
+    BUCKET_NAME: ${self:custom.bucketName}
+    DB_NAME: ${self:custom.dbName}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:PutObject
+      Resource:
+        - "arn:aws:s3:::${self:custom.bucketName}"
+        - "arn:aws:s3:::${self:custom.bucketName}/*"
+
+package:
+  individually: true
+
+functions:
+  listEntries:
+    handler: handler.listEntries
+    events:
+      - http:
+          path: leaderboard
+          method: get
+          cors: true
+  addEntry:
+    handler: handler.addEntry
+    events:
+      - http:
+          path: leaderboard
+          method: post
+          cors: true
+
+resources:
+  Resources:
+    RoomsBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.bucketName}
+        CorsConfiguration:
+          CorsRules:
+            - AllowedHeaders:
+                - "Authorization"
+              AllowedMethods:
+                - GET
+              AllowedOrigins:
+                - "*"
+            - AllowedHeaders:
+                - "*"
+              AllowedMethods:
+                - PUT
+              AllowedOrigins:
+                - "*"
+
+plugins:
+  - serverless-offline
+
+custom:
+  bucketName: ld46-leaderboard
+  dbName: db.json
