@@ -33,7 +33,7 @@ exports.addEntry = async (event) => {
   const existingUser = findExistingUser(entries, newEntry)
   if (existingUser && !isSecretCorrect(existingUser, newEntry.secret)) {
     return {
-      statusCode: 400,
+      statusCode: 403,
       body: JSON.stringify(errors.NameTakenError)
     }
   }
