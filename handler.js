@@ -23,7 +23,7 @@ exports.addEntry = async (event) => {
   const newEntry = JSON.parse(event.body)
   let entries = await getEntries()
 
-  if (!newEntry.name || !newEntry.score || !newEntry.secret) {
+  if (!newEntry.name || !newEntry.score) {
     return {
       statusCode: 400,
       body: JSON.stringify(errors.MissingDataError)
@@ -41,7 +41,7 @@ exports.addEntry = async (event) => {
   entries.push({
     name: newEntry.name,
     score: newEntry.score,
-    secret: newEntry.secret,
+    secret: newEntry.secret || '',
     date: new Date()
   })
 
@@ -98,5 +98,6 @@ const findExistingUser = (entries, newEntry) => {
 }
 
 const isSecretCorrect = (entry, secret) => {
+  if (!secret || secret.trim().length === 0) return true;
   return entry.secret === secret
 }

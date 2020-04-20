@@ -10,5 +10,5 @@ module.exports.NoSortError = {
 
 module.exports.MissingDataError = {
   error: 'MissingDataError',
-  message: 'The request is either missing a \'name\', \'score\' or \'secret\'.'
+  message: 'The request is either missing a \'name\' or \'score\'.'
 }
